@@ -1,0 +1,141 @@
+---
+title: "Untitled"
+author: "avanvalken"
+date: "2024-12-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(scRepertoire)
+library(immunarch)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# Load Data
+```{r}
+#setwd("..")
+# path to contigs
+path <- file.path(getwd(), "data/trust4_reports")
+contig.output <- list.files(path, pattern = "airr.tsv", recursive = T, full.names = T)
+
+# read in contigs
+contig.list <- lapply(contig.output, read_tsv)
+names(contig.list) <- list.dirs(path, full.names = F, recursive = F)
+
+contig.list <- loadContigs(contig.list, format="AIRR")
+```
+
+# scRepertoire
+
+Citation is: Borcherding, N, Yang, Q, & Safina, K. (2024). scRepertoire v2: A toolkit for single-cell immune receptor profiling. DOI: 10.18129/B9.bioc.scRepertoire
+
+
+
+# Immunarch
+
+## load data
+```{r}
+# path to trust4 reports
+path <- file.path("../data/trust4_reports")
+immdata <- repLoad(path)
+
+```
+
+## add metadata
+```{r}
+immdata$meta <- immdata$meta %>% mutate(Status=ifelse(grepl("CC",Sample), "CC", "ZA"))
+```
+
+
+## Explore
+```{r}
+exp_vol <- repExplore(immdata$data, .method = "volume")
+exp_clone <- repExplore(immdata$data, .method = "clones")
+exp_len <- repExplore(immdata$data, .method = "len", .col="aa")
+exp_count <- repExplore(immdata$data, .method = "count")
+
+p1 <- vis(exp_vol, .by = c("Status"), .meta = immdata$meta)
+p2 <- vis(exp_clone, .by = c("Status"), .meta = immdata$meta)
+p3 <- vis(exp_len, .by = c("Status"), .meta = immdata$meta)
+p4 <- vis(exp_count, .by = c("Status"), .meta = immdata$meta)
+p1 | p2 
+p3 | p4
+
+
+```
+
+### Save
+```{r}
+outs <- file.path("../outs/immunarch", "repexplore")
+#dir.create(outs)
+ggsave(file.path(outs, "unique_clonotypes_by_status_volume.png"), plot=p1, width=5, height=5)
+ggsave(file.path(outs, "unique_clonotypes_by_status_clones.png"), plot=p2, width=5, height=5)
+ggsave(file.path(outs, "unique_clonotypes_by_status_length.png"), plot=p3, width=5, height=5)
+ggsave(file.path(outs, "unique_clonotypes_by_status_count.png"), plot=p4, width=5, height=5)
+
+
+
+```
+
+
+
+## Clonality
+```{r}
+outs <- file.path("../outs/immunarch", "clonality")
+#dir.create(outs)
+```
+
+### proportion of clones
+```{r}
+# proportion of clones
+imm_pr <- repClonality(immdata$data, .method = "clonal.prop")
+imm_pr
+```
+#### Visualize and save
+```{r}
+vis(imm_pr) + vis(imm_pr, .by = "Status", .meta = immdata$meta)
+ggsave(file.path(outs, "proportion.png"), width=10, height = 7)
+```
+
+### Top clonaltypes
+```{r}
+imm_top <- repClonality(immdata$data, .method = "top", .head = c(1, 2, 5, 10, 50, 60))
+imm_top
+```
+#### Visualize and save
+```{r}
+vis(imm_top) + vis(imm_top, .by = "Status", .meta = immdata$meta)
+ggsave(file.path(outs, "top_proportion.png"), width=10, height = 7)
+```
+
+### Lowest clonaltypes
+```{r}
+imm_rare <- repClonality(immdata$data, .method = "rare")
+imm_rare
+```
+#### Visualize and save
+```{r}
+vis(imm_rare) + vis(imm_rare, .by = "Status", .meta = immdata$meta)
+ggsave(file.path(outs, "rare_proportion.png"), width=10, height = 7)
+```
+
+###  Homeostasis
+Finally, the homeo method assesses the clonal space homeostasis, i.e., the proportion of the repertoire occupied by the clones of a given size:
+
+```{r}
+imm_hom <- repClonality(immdata$data,
+  .method = "homeo",
+  .clone.types = c(Small = .0001, Medium = .001, Large = .01, Hyperexpanded = 1)
+)
+imm_hom
+```
+
+#### Visualize and save
+```{r}
+vis(imm_hom) + vis(imm_hom, .by = "Status", .meta = immdata$meta)
+ggsave(file.path(outs, "homeostasis.png"), width=10, height = 7)
+```
+
