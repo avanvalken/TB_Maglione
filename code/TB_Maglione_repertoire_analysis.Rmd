@@ -50,7 +50,7 @@ immdata$meta <- immdata$meta %>% mutate(Status=ifelse(grepl("CC",Sample), "CC", 
 ```
 
 
-## Explore
+## Explore Repertoire
 ```{r}
 exp_vol <- repExplore(immdata$data, .method = "volume")
 exp_clone <- repExplore(immdata$data, .method = "clones")
@@ -137,5 +137,171 @@ imm_hom
 ```{r}
 vis(imm_hom) + vis(imm_hom, .by = "Status", .meta = immdata$meta)
 ggsave(file.path(outs, "homeostasis.png"), width=10, height = 7)
+```
+
+## Repertoire overlap
+Repertoire overlap is the most common approach to measure repertoire similarity. It is achieved by computation of specific statistics on clonotypes shared between given repertoires, also called “public” clonotypes. immunarch provides several indices: - number of public clonotypes (.method = "public") - a classic measure of overlap similarity.
+
+overlap coefficient (.method = "overlap") - a normalised measure of overlap similarity. It is defined as the size of the intersection divided by the smaller of the size of the two sets.
+
+Jaccard index (.method = "jaccard") - measures the similarity between finite sample sets, and is defined as the size of the intersection divided by the size of the union of the sample sets.
+
+Tversky index (.method = "tversky") - an asymmetric similarity measure on sets that compares a variant to a prototype. If using default arguments, it’s similar to Dice’s coefficient.
+
+cosine similarity (.method = "cosine") - a measure of similarity between two non-zero vectors
+
+Morisita’s overlap index (.method = "morisita") - a statistical measure of dispersion of individuals in a population. It is used to compare overlap among samples.
+
+incremental overlap - overlaps of the N most abundant clonotypes with incrementally growing N (.method = "inc+METHOD", e.g., "inc+public" or "inc+morisita").
+
+The function that includes described methods is repOverlap. Again, the output is easily visualised when passed to vis() function that does all the work:
+```{r}
+outs <- file.path("../outs/immunarch", "overlap")
+dir.create(outs)
+```
+
+
+### Overlap, public and morisita
+overlap of public clonotypes; it is defined as the size of the intersection divided by the smaller of the size of the two sets
+```{r}
+imm_ov1 <- repOverlap(immdata$data, .method = "public", .verbose = F)
+imm_ov2 <- repOverlap(immdata$data, .method = "morisita", .verbose = F)
+
+p1 <- vis(imm_ov1)
+p2 <- vis(imm_ov2, .text.size = 2)
+
+p1 + p2
+```
+### Save
+```{r}
+ggsave(file.path(outs, "public_overlap.png"),plot=p1, width=5, height=5)
+ggsave(file.path(outs, "morisita_overlap.png"),plot=p2, width=5, height=5)
+
+```
+
+
+```{r}
+p3 <- vis(imm_ov1, "heatmap2")
+```
+```{r}
+ggsave(file.path(outs, "public_overlap_heatmap.png"), plot=p3, width=5, height=5)
+```
+
+
+```{r}
+# Apply different analysis algorithms to the matrix of public clonotypes:
+# "mds" - Multi-dimensional Scaling
+#repOverlapAnalysis(imm_ov1, "mds") Error in MASS::isoMDS(.data, k = 2, trace = FALSE) : 
+  #zero or negative distance between objects 1 and 5
+p4 <- repOverlapAnalysis(imm_ov1, "tsne") %>% vis()
+p4
+```
+### Save
+```{r}
+ggsave(file.path(outs, "public_overlap_tsn3.png"), plot=p4, width=5, height=5)
+```
+
+```{r}
+#repOverlapAnalysis(imm_ov1, "mds+kmeans") %>% vis()
+#Error in MASS::isoMDS(.data, k = 2, trace = FALSE) : 
+#  zero or negative distance between objects 1 and 5
+```
+
+### Public repertoire
+```{r}
+# Pass "nt" as the second parameter to build the public repertoire table using CDR3 nucleotide sequences
+pr.nt <- pubRep(immdata$data, "nt", .verbose = F)
+pr.nt
+```
+
+```{r}
+# Pass "aa+v" as the second parameter to build the public repertoire table using CDR3 aminoacid sequences and V alleles
+# In order to use only CDR3 aminoacid sequences, just pass "aa"
+pr.aav <- pubRep(immdata$data, "aa+v", .verbose = F)
+pr.aav
+```
+
+
+
+```{r}
+# Create a public repertoire with coding-only sequences using both CDR3 amino acid sequences and V genes
+pr <- pubRep(immdata$data, "aa+v", .coding = T, .verbose = F)
+
+# Apply the filter subroutine to leave clonotypes presented only in healthy individuals
+pr1 <- pubRepFilter(pr, immdata$meta, c(Status = "ZA"))
+
+# Apply the filter subroutine to leave clonotypes presented only in diseased individuals
+pr2 <- pubRepFilter(pr, immdata$meta, c(Status = "CC"))
+
+# Divide one by another
+pr3 <- pubRepApply(pr1, pr2)
+
+# Plot it
+p <- ggplot() +
+  geom_jitter(aes(x = "Treatment", y = Result), data = pr3)
+p
+```
+
+## Gene usage computation
+immunarch comes with a gene segments data table containing known gene segments for several species following the IMGT nomenclature. In order to get the current statistics of genes, call the gene_stats() function:
+
+```{r}
+outs <- file.path("../outs/immunarch/gene_usage")
+dir.create(outs)
+```
+
+
+### TCR
+
+
+```{r}
+imm_gu <- geneUsage(immdata$data, "hs.trbv", .norm = T)
+
+vis(imm_gu, .by = "Status", .meta = immdata$meta)
+```
+
+```{r}
+vis(imm_gu, .by = "Status", .meta = immdata$meta, .plot = "box")
+```
+
+
+
+## Gene Usage Analysis
+```{r}
+imm_gu <- geneUsage(immdata$data, "hs.trbv", .norm = T)
+
+imm_gu_js <- geneUsageAnalysis(imm_gu, .method = "js", .verbose = F)
+imm_gu_cor <- geneUsageAnalysis(imm_gu, .method = "cor", .verbose = F)
+
+p1 <- vis(imm_gu_js, .title = "Gene usage JS-divergence", .leg.title = "JS", .text.size = 1.5)
+p2 <- vis(imm_gu_cor, .title = "Gene usage correlation", .leg.title = "Cor", .text.size = 1.5)
+
+p1 + p2
+```
+
+```{r}
+imm_gu_js[is.na(imm_gu_js)] <- 0
+
+vis(geneUsageAnalysis(imm_gu, "cosine+hclust", .verbose = F))
+```
+
+
+```{r}
+imm_cl_pca <- geneUsageAnalysis(imm_gu, "js+pca+kmeans", .verbose = F)
+imm_cl_mds <- geneUsageAnalysis(imm_gu, "js+mds+kmeans", .verbose = F)
+imm_cl_tsne <- geneUsageAnalysis(imm_gu, "js+tsne+kmeans", .perp = .01, .verbose = F)
+
+p1 <- vis(imm_cl_pca, .plot = "clust")
+p2 <- vis(imm_cl_mds, .plot = "clust")
+p3 <- vis(imm_cl_tsne, .plot = "clust")
+p1 + p2 + p3
+```
+
+
+```{r}
+p1 <- vis(spectratype(immdata$data[[1]], .quant = "id", .col = "nt"))
+p2 <- vis(spectratype(immdata$data[[1]], .quant = "count", .col = "aa+v"))
+
+p1 + p2
 ```
 
