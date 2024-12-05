@@ -259,9 +259,18 @@ imm_gu <- geneUsage(immdata$data, "hs.trbv", .norm = T)
 
 vis(imm_gu, .by = "Status", .meta = immdata$meta)
 ```
+#### Save
+```{r}
+ggsave(file.path(outs, "V_gene_all_barplots.png"), width=10, height=7)
+```
 
+### Boxplot of V gene use
 ```{r}
 vis(imm_gu, .by = "Status", .meta = immdata$meta, .plot = "box")
+```
+#### Save
+```{r}
+ggsave(file.path(outs, "V_gene_all_boxplots.png"), width=10, height=7)
 ```
 
 
@@ -278,13 +287,20 @@ p2 <- vis(imm_gu_cor, .title = "Gene usage correlation", .leg.title = "Cor", .te
 
 p1 + p2
 ```
+#### Save
+```{r}
+ggsave(file.path(outs, "JS_divergence_Correlation_plots.png"), width=10, height=7)
+```
 
 ```{r}
 imm_gu_js[is.na(imm_gu_js)] <- 0
 
 vis(geneUsageAnalysis(imm_gu, "cosine+hclust", .verbose = F))
 ```
-
+#### Save
+```{r}
+ggsave(file.path(outs, "JS_divergence_cosine_hclust_plots.png"), width=10, height=7)
+```
 
 ```{r}
 imm_cl_pca <- geneUsageAnalysis(imm_gu, "js+pca+kmeans", .verbose = F)
@@ -297,6 +313,10 @@ p3 <- vis(imm_cl_tsne, .plot = "clust")
 p1 + p2 + p3
 ```
 
+### Save
+```{r}
+ggsave(file.path(outs, "JS_PCA_Kmeans.png"), plot=p1,width=5, height=5)
+```
 
 ```{r}
 p1 <- vis(spectratype(immdata$data[[1]], .quant = "id", .col = "nt"))
@@ -304,4 +324,124 @@ p2 <- vis(spectratype(immdata$data[[1]], .quant = "count", .col = "aa+v"))
 
 p1 + p2
 ```
+### Save
+```{r}
+ggsave(file.path(outs, "CDR3nt_AA_V_length.png"), plot=p1,width=10, height=7)
+```
+
+## Diversity estimation
+```{r}
+outs <- file.path("../outs/immunarch/diversity_estimation")
+#dir.create(outs)
+```
+
+There are several approaches to the estimation of repertoire diversity implemented in the repDiversity function. The .method parameter similarly to above mentioned functions sets the means for diversity estimation. You can choose one of the following methods:
+
+chao1 - is a nonparameteric asymptotic estimator of species richness (number of species in a population).
+
+hill - Hill numbers are a mathematically unified family of diversity indices (differing only by an exponent q).
+
+div - true diversity, or the effective number of types, refers to the number of equally abundant types needed for the average proportional abundance of the types to equal that observed in the dataset of interest where all types may not be equally abundant.
+
+gini.simp - The Gini-Simpson index is the probability of interspecific encounter, i.e., probability that two entities represent different types.
+
+inv.simp - Inverse Simpson index is the effective number of types that is obtained when the weighted arithmetic mean is used to quantify average proportional abundance of types in the dataset of interest.
+
+gini - The Gini coefficient measures the inequality among values of a frequency distribution (for example levels of income). A Gini coefficient of zero expresses perfect equality, where all values are the same (for example, where everyone has the same income). A Gini coefficient of one (or 100 percents ) expresses maximal inequality among values (for example where only one person has all the income).
+
+raref - Rarefaction is a technique to assess species richness from the results of sampling through extrapolation.
+
+The .col parameter regulates what sequences and gene segments to choose. For example, if you want to estimate diversity on the nucleotide level, you need to supply .col = "nt", in case you want to estimate the diversity on the amino acid level - .col = "aa". If you want to estimate diversity of the amino acid CDR3 sequences coupled with V gene segments, you need to provide .col = "aa+v". By default .col = "aa".
+
+### diversity measures
+```{r}
+# Compute statistics and visualise them
+# Chao1 diversity measure
+div_chao <- repDiversity(immdata$data, "chao1")
+
+# Hill numbers
+div_hill <- repDiversity(immdata$data, "hill")
+
+# D50
+div_d50 <- repDiversity(immdata$data, "d50")
+
+# Ecological diversity measure
+div_div <- repDiversity(immdata$data, "div")
+
+# Gini-Simpson
+div_ginisimp <- repDiversity(immdata$data, "gini.simp")
+
+# Inverse Simpson inv.simp
+div_invsimp <- repDiversity(immdata$data, "inv.simp")
+
+# Gini Coefficient
+div_gini <- repDiversity(immdata$data, "gini")
+
+p1 <- vis(div_chao)
+p2 <- vis(div_chao, .by = c("Status"), .meta = immdata$meta)
+p3 <- vis(div_hill, .by = c("Status"), .meta = immdata$meta)
+
+p4 <- vis(div_d50)
+p5 <- vis(div_d50, .by = "Status", .meta = immdata$meta)
+p6 <- vis(div_div)
+
+p7 <- vis(div_ginisimp, .by = c("Status"), .meta = immdata$meta)
+p8 <- vis(div_invsimp, .by = c("Status"), .meta = immdata$meta)
+#p9 <- vis(div_gini, .by = c("Status"), .meta = immdata$meta)
+
+p1 + p2
+```
+### Save
+```{r}
+ggsave(file.path(outs, "chao1_diversity.png"), plot=p1,width=10, height=7)
+```
+
+### Hill and ecological
+```{r}
+p3 + p6
+```
+```{r}
+ggsave(file.path(outs, "hill_true_diversity.png"), plot=p1,width=10, height=7)
+```
+
+
+### Gini-Simpson and Inverse-Simpson index
+```{r}
+p7 + p8
+```
+```{r}
+ggsave(file.path(outs, "gini-simpson_inv-simpson_diversity.png"), plot=p1,width=10, height=7)
+```
+
+
+```{r}
+p4 + p5
+```
+```{r}
+ggsave(file.path(outs, "div_top50.png"), plot=p1,width=10, height=7)
+
+```
+
+
+```{r}
+imm_raref <- repDiversity(immdata$data, "raref", .verbose = F)
+
+p1 <- vis(imm_raref)
+p2 <- vis(imm_raref, .by = "Status", .meta = immdata$meta)
+
+p1 + p2 # need to remove outlier
+```
+
+
+```{r}
+repDiversity(immdata$data, "raref", .verbose = F) %>% vis(.log = TRUE,.by = "Status", .meta = immdata$meta)
+
+```
+
+```{r}
+ggsave(file.path(outs, "rarefication_by_status_logscale.png"), plot=p1,width=7, height=7)
+
+```
+
+
 
